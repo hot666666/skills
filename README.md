@@ -1,10 +1,27 @@
 # Agent Skills
 
-Minimal Agent Skills repository for testing install and discovery across agentic coding tools.
+This repository collects skills for three common iOS workflows:
+
+- UIKit view and view controller coding style
+- Swift Redux state management
+- XCUITest page object patterns
 
 ## Skills
 
-- `hello-world`: a tiny example skill that confirms skill loading behavior.
+### `uikit-coding-style`
+Use when creating, refactoring, or reviewing UIKit views, view controllers, themed components, layout code, and screen wiring.
+
+Reference: `skills/uikit-coding-style/references/patterns.md`
+
+### `redux-state-management`
+Use when working on app state, actions, reducers, middleware, subscriptions, or state-management tests.
+
+Reference: `skills/redux-state-management/references/patterns.md`
+
+### `xcuitest-page-object-patterns`
+Use when building or updating UI tests, selectors, page objects, accessibility identifiers, or screenshot flows.
+
+Reference: `skills/xcuitest-page-object-patterns/references/patterns.md`
 
 ## Install
 
@@ -14,16 +31,15 @@ Interactive install:
 npx skills add hot666666/skills
 ```
 
-Install only the hello-world skill:
+Install one skill:
 
 ```bash
-npx skills add hot666666/skills --skill hello-world
+npx skills add hot666666/skills --skill uikit-coding-style
 ```
 
-Install globally for Codex:
+## References
 
-```bash
-npx skills add hot666666/skills --skill hello-world -g -a codex
-```
+### External background docs
 
-After installing, restart the target agent if it does not pick up new skills immediately.
+- Redux: [Mozilla Firefox iOS Redux sources](https://github.com/mozilla-mobile/firefox-ios/tree/main/BrowserKit/Sources/Redux)
+- POM: [Firefox iOS UI testing guide - building page object](https://github.com/mozilla-mobile/firefox-ios/wiki/Test-Automation-Efficiency-UI-Testing-Guide-for-Firefox-iOS#building-page-object)
