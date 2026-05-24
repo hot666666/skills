@@ -13,7 +13,7 @@ metadata:
 2. Model state as `Equatable` value types. Use one app state that delegates to feature or screen substates, and keep transient defaults behind `defaultState(from:)`.
 3. Define actions as small structs with `windowUUID`, `actionType`, and only the payload needed by reducers or middleware. Define user/view actions separately from middleware-result actions when that improves traceability.
 4. Keep reducers pure and synchronous. Reducers receive `(state, action)` and return a new state. They gate by `windowUUID` where the app can have multiple windows or multiple active screen states.
-5. Put side effects in middleware. Middleware is an array of `(State, Action) -> Void` handlers run after reduction for each dispatched action. Treat it as action/state-triggered side-effect handlers, not as a chain that transforms the action.
+5. Put side effects in middleware. Middleware is an array of `@MainActor (State, Action) -> Void` handlers run after reduction for each dispatched action. Treat it as action/state-triggered side-effect handlers, not as a chain that transforms the action.
 6. Subscribe UI using `StoreSubscriber` and `store.subscribe(_:transform:)`. Select the narrow substate needed by the screen or view so unchanged unrelated app state does not trigger updates.
 7. On screen/component lifetime, dispatch add/remove component actions if the app tracks active screen state.
 8. Test reducers with direct reducer calls. Test middleware with injected dependencies and a replaceable or mock store.
@@ -27,6 +27,9 @@ metadata:
 - In middleware, inject dependencies through the initializer and provide production defaults. Dispatch follow-up actions only after side effects complete.
 - Keep store dispatches on the main actor when the store is main-actor isolated.
 - Avoid putting network, storage, telemetry, or service calls in reducers.
+- View controllers and UI components that observe Redux state must conform to `StoreSubscriber`, implement `subscribeToRedux()` and typed `newState(state:)`, and subscribe with `store.subscribe(_:transform:)` plus `Subscription.select` for the narrow state they need. Do not add a default no-op `subscribeToRedux()` implementation that lets a subscriber compile without wiring itself.
+- Keep middleware signatures aligned with the RiderApp/Firefox-style core: middleware receives the reduced state and action, while follow-up actions are dispatched through the store/dispatch-store reference, not a third closure parameter.
+- When implementing `Subscription.select`, preserve the Firefox iOS retain chain: `Subscription.init(sink:)` must capture the transformed subscription strongly. Do not use `[weak self]` inside that initializer's sink callback unless the transformed subscription is stored strongly elsewhere.
 
 ## Reference
 

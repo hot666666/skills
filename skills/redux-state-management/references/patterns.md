@@ -28,19 +28,62 @@ Subscriptions are observer-style. `Subscription.select` maps app state to a smal
 ## Core Types
 
 ```swift
-public protocol Action: Sendable, CustomDebugStringConvertible {
+public typealias WindowUUID = String
+
+public protocol ActionType {}
+
+public protocol Action {
     var windowUUID: WindowUUID { get }
-    var actionType: ActionType { get }
+    var actionType: any ActionType { get }
+    var debugDescription: String { get }
 }
 
-public protocol ActionType: Sendable {}
+public extension Action {
+    var debugDescription: String {
+        let className = String(describing: Self.self)
+        return "<\(className)> Type: \(actionType) Window: \(windowUUID)"
+    }
+}
 
-public protocol StateType: Sendable, Equatable {
+@MainActor
+protocol StateType: Equatable {
     static func defaultState(from state: Self) -> Self
 }
 
-public typealias Reducer<State> = @MainActor (State, Action) -> State
-public typealias Middleware<State> = (State, Action) -> Void
+public typealias DispatchFunction = @MainActor (Action) -> Void
+public typealias Middleware<State> = @MainActor (State, Action) -> Void
+typealias Reducer<State> = @MainActor (State, Action) -> State
+```
+
+When a caller only needs to dispatch actions, depend on the minimal dispatch interface instead of the concrete store.
+
+```swift
+protocol DispatchStore {
+    @MainActor
+    func dispatch(_ action: Action)
+}
+
+protocol DefaultDispatchStore<State>: DispatchStore where State: StateType {
+    associatedtype State
+
+    @MainActor
+    var state: State { get }
+
+    @MainActor
+    func subscribe<S: StoreSubscriber>(_ subscriber: S) where S.SubscriberStateType == State
+
+    @MainActor
+    func subscribe<SubState: Equatable, S: StoreSubscriber>(
+        _ subscriber: S,
+        transform: ((Subscription<State>) -> Subscription<SubState>)?
+    ) where S.SubscriberStateType == SubState
+
+    @MainActor
+    func unsubscribe<S: StoreSubscriber>(_ subscriber: S) where S.SubscriberStateType == State
+
+    @MainActor
+    func unsubscribe(_ subscriber: any StoreSubscriber)
+}
 ```
 
 ## Store Delivery Order
@@ -58,7 +101,7 @@ The queue prevents a middleware-dispatched action from interleaving with the cur
 
 ## Subscription Pipeline
 
-This Redux implementation uses an observer pattern with a wrapper around each subscriber. The wrapper owns the original app-state subscription, optionally owns a transformed substate subscription, and holds the subscriber weakly.
+This Redux implementation uses an observer pattern with a wrapper around each subscriber. The wrapper owns the original app-state subscription and holds the subscriber weakly. When a transformed substate subscription is used, it is intentionally not stored as a wrapper property; it stays alive through the `originalSubscription.observer -> sink -> transformedSubscription` retain chain created by `Subscription.select`.
 
 ```swift
 @MainActor
@@ -67,7 +110,7 @@ final class SubscriptionWrapper<State: Equatable>: Hashable {
     weak var subscriber: AnyStoreSubscriber?
     private let objectIdentifier: ObjectIdentifier
 
-    init<T>(
+    init<T: Equatable>(
         originalSubscription: Subscription<State>,
         transformedSubscription: Subscription<T>?,
         subscriber: AnyStoreSubscriber
@@ -95,21 +138,31 @@ final class SubscriptionWrapper<State: Equatable>: Hashable {
 
 `objectIdentifier` makes one subscriber instance map to one wrapper in the store's `Set`; resubscribing the same object updates the wrapper instead of adding duplicates. The weak subscriber means explicit unsubscribe is useful for removing active screen state, but dead subscribers can still be cleaned during publication.
 
+Do not make the `Subscription.init(sink:)` callback capture `self` weakly. The transformed subscription returned from `select` is retained by the sink callback. Using `[weak self]` there breaks the chain, lets the transformed subscription deallocate immediately after wrapper setup, and prevents selected-substate subscribers from receiving updates.
+
 ## Subscription And Select
 
 `Subscription` suppresses notifications when the observed value is unchanged. `select` wires the original app-state observer to a derived `Subscription<Substate>`.
 
 ```swift
 @MainActor
-public final class Subscription<State: Equatable> {
-    public var observer: (@MainActor (State?, State) -> Void)?
+final class Subscription<State: Equatable> {
+    var observer: (@MainActor (State?, State) -> Void)?
+
+    init() {}
+
+    init(sink: @escaping (@MainActor @escaping (State?, State) -> Void) -> Void) {
+        sink { oldState, newState in
+            self.newValues(oldState: oldState, newState: newState)
+        }
+    }
 
     func newValues(oldState: State?, newState: State) {
         guard newState != oldState else { return }
         observer?(oldState, newState)
     }
 
-    public func select<Substate>(
+    func select<Substate: Equatable>(
         _ selector: @escaping (State) -> Substate
     ) -> Subscription<Substate> {
         Subscription<Substate> { sink in
@@ -315,7 +368,7 @@ let middlewares: [Middleware<AppState>] = [
 
 @MainActor
 let store: any DefaultDispatchStore<AppState> = Store(
-    state: AppState(),
+    initialState: AppState(),
     reducer: AppState.reducer,
     middlewares: middlewares
 )
