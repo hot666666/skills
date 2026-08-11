@@ -1,4 +1,30 @@
-# UIKit Patterns
+# UIKit and AppKit Patterns
+
+## Framework Selection
+
+Use the local framework rather than mechanically translating types. UIKit and AppKit share
+file organization, dependency injection, delegate, coordinator, accessibility, and Auto Layout
+principles, but their lifecycle and event APIs differ.
+
+| Concern | UIKit | AppKit |
+| --- | --- | --- |
+| Base view | `UIView` | `NSView` |
+| Controller | `UIViewController` | `NSViewController` |
+| Table/collection | `UITableView`, `UICollectionView` | `NSTableView`, `NSCollectionView` |
+| Root construction | `loadView` or nib/storyboard | `loadView`, nib/storyboard, or injected root view |
+| Loaded lifecycle | `viewDidLoad` | `viewDidLoad` |
+| Control action | target/action with `UIControl.Event` | target/action with `NSControl` |
+| Appearance | trait/theme handling | effective appearance/theme handling |
+| Accessibility ID | `accessibilityIdentifier` | `setAccessibilityIdentifier(_:)` |
+
+For AppKit:
+
+- Keep `loadView` limited to constructing and assigning the root `NSView`.
+- Set `translatesAutoresizingMaskIntoConstraints = false` explicitly unless a project helper does it.
+- Respect responder-chain, first-responder, field-editor, window, and view-controller ownership.
+- Do not substitute UIKit lifecycle hooks or touch-event assumptions for AppKit events.
+- Use `NSTableCellView`/`NSCollectionViewItem` reuse APIs and identifiers rather than UIKit cell APIs.
+- Preserve established AppKit ownership for menu, toolbar, window, drag/drop, and text input behavior.
 
 ## Contents
 

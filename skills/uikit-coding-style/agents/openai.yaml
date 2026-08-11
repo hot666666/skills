@@ -1,0 +1,4 @@
+interface:
+  display_name: "UIKit and AppKit Coding Style"
+  short_description: "Apply consistent Apple view and controller patterns"
+  default_prompt: "Apply $uikit-coding-style to this UIKit or AppKit UI change."
